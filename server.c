@@ -1,0 +1,120 @@
+#include "segel.h"
+#include "request.h"
+#include "Queue.h"
+
+// 
+// server.c: A very, very simple web server
+//
+// To run:
+//  ./server <portnum (above 2000)>
+//
+// Repeatedly handles HTTP requests sent to this port number.
+// Most of the work is done within routines written in request.c
+//
+
+
+/// /////
+struct Queues_container{
+    struct Queue * m_waiting_ptr;
+    struct Queue * m_running_ptr;
+};
+// HW3: Parse the new arguments too
+void getargs(int *port, int *pool_size, int *queue_size, char *schedalg, int argc, char *argv[])
+{
+    //TODO: ADD VALIDATION
+    if (argc < 2) {
+	    fprintf(stderr, "Usage: %s <port>\n", argv[0]);
+	    exit(1);
+    }
+    if(argc < 5) exit(1);
+
+    *port = atoi(argv[1]);
+    *pool_size = atoi(argv[2]);
+    *queue_size = atoi(argv[3]);
+    schedalg = argv[4];
+}
+
+void *thread_function(void* Container);
+
+pthread_cond_t cnd; 
+pthread_mutex_t mtx;
+
+int main(int argc, char *argv[])
+{
+    int listenfd, connfd, port, clientlen, queue_size, pool_size;
+    char* schedalg = NULL;
+    struct sockaddr_in clientaddr;
+
+    struct Queue * waiting_ptr = createQueue();
+    struct Queue * running_ptr = createQueue();
+    struct Queues_container container = {waiting_ptr, running_ptr};
+    getargs(&port, &pool_size, &queue_size, schedalg, argc, argv);
+
+    // 
+    // HW3: Create some threads...
+
+    pthread_t *thread_pool = (pthread_t *)malloc(pool_size * sizeof(pthread_t));
+    for (int i = 0; i < pool_size; i++) {
+        if (pthread_create(&thread_pool[i], NULL, thread_function, &container) != 0) {
+            perror("pthread_create failed");
+            exit(EXIT_FAILURE);
+        }
+    }
+    pthread_mutex_init(&mtx, NULL);
+    pthread_cond_init(&cnd, NULL);
+    listenfd = Open_listenfd(port);
+    while (1) {
+        clientlen = sizeof(clientaddr);
+        pthread_mutex_lock(&mtx);
+        while(waiting_ptr->size + running_ptr->size ){
+            printf("%ld Waiting\n", pthread_self());
+            pthread_cond_wait(&cnd, &mtx);
+        }
+        connfd = Accept(listenfd, (SA *)&clientaddr, (socklen_t *) &clientlen);
+        pthread_mutex_lock(&mtx);
+        enQueue(waiting_ptr, connfd);
+        pthread_cond_signal(&cnd);
+        pthread_mutex_unlock(&mtx);
+	    //Close(connfd);
+	// 
+	// HW3: In general, don't handle the request in the main thread.
+	// Save the relevant info in a buffer and have one of the worker threads 
+	// do the work. 
+	// 
+	//requestHandle(connfd);
+    }
+
+}
+
+void *thread_function(void* Container){
+    struct Queues_container* container = (struct Queues_container*)Container;
+    struct Queue * waiting_ptr = container->m_waiting_ptr;
+    struct Queue * running_ptr = container->m_running_ptr;
+    while(1){
+        pthread_mutex_lock(&mtx);
+        while(isEmpty(waiting_ptr) == 1){
+            printf("%ld Waiting\n", pthread_self());
+            pthread_cond_wait(&cnd, &mtx);
+        }
+
+        int top_request = popQueue(waiting_ptr);
+
+        printf("Fd %d\n", top_request);
+        enQueue(running_ptr, top_request);
+        pthread_mutex_unlock(&mtx);
+
+        requestHandle(top_request);
+        
+        pthread_mutex_lock(&mtx);
+
+        delete_by_value(running_ptr, top_request);
+        //condition
+        pthread_mutex_unlock(&mtx);
+        Close(top_request);
+    }
+}
+
+    
+
+
+ 
