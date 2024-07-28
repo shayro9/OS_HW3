@@ -15,6 +15,7 @@
 struct Queues_container{
     struct Queue * m_waiting_ptr;
     struct Queue * m_running_ptr;
+    int m_id_thread;
 };
 // HW3: Parse the new arguments too
 void getargs(int *port, int *pool_size, int *queue_size, char **schedalg, int argc, char *argv[])
@@ -45,7 +46,7 @@ int main(int argc, char *argv[])
 
     struct Queue * waiting_ptr = createQueue();
     struct Queue * running_ptr = createQueue();
-    struct Queues_container container = {waiting_ptr, running_ptr};
+    struct Queues_container container = {waiting_ptr, running_ptr, 0};
     getargs(&port, &pool_size, &queue_size, &schedalg, argc, argv);
 
     pthread_mutex_init(&mtx, NULL);
@@ -55,6 +56,7 @@ int main(int argc, char *argv[])
 
     pthread_t *thread_pool = (pthread_t *)malloc(pool_size * sizeof(pthread_t));
     for (int i = 0; i < pool_size; i++) {
+        container.m_id_thread = i;
         if (pthread_create(&thread_pool[i], NULL, thread_function, &container) != 0) {
             perror("pthread_create failed");
             exit(EXIT_FAILURE);
@@ -64,8 +66,10 @@ int main(int argc, char *argv[])
     listenfd = Open_listenfd(port);
     while (1) {
         clientlen = sizeof(clientaddr);
+        struct timeval arrival_time;
         connfd = Accept(listenfd, (SA *)&clientaddr, (socklen_t *) &clientlen);
-        
+        gettimeofday(&arrival_time, NULL);
+
         pthread_mutex_lock(&mtx);
         while(waiting_ptr->size + running_ptr->size  >= queue_size){
             printf("get into while\n");
@@ -78,19 +82,21 @@ int main(int argc, char *argv[])
                 pthread_mutex_unlock(&mtx);
                 Close(connfd);
                 connfd = Accept(listenfd, (SA *)&clientaddr, (socklen_t *) &clientlen);
+                gettimeofday(&arrival_time, NULL);
                 pthread_mutex_lock(&mtx);
             }
             
             else if(strcmp(schedalg, "dh") == 0){
-                int oldest_request = popQueue(waiting_ptr);
-                if(oldest_request == 0){ 
+                Request_info oldest_request = popQueue(waiting_ptr);
+                if(oldest_request.fd == 0){ 
                     continue;
                 }
-                enQueue(waiting_ptr, connfd);
+                Request_info val = {connfd, arrival_time};
+                enQueue(waiting_ptr, val );
                 pthread_mutex_unlock(&mtx);
-                Close(oldest_request);
+                Close(oldest_request.fd);
                 connfd = Accept(listenfd, (SA *)&clientaddr, (socklen_t *) &clientlen);
-                printf("Accepted connection %d\n", connfd);
+                gettimeofday(&arrival_time, NULL);
                 pthread_mutex_lock(&mtx);
             }
             
@@ -114,8 +120,8 @@ int main(int argc, char *argv[])
             }
         }
 
-
-        enQueue(waiting_ptr, connfd);
+        Request_info request = {connfd, arrival_time};
+        enQueue(waiting_ptr, request);
         pthread_cond_signal(&cnd);
         pthread_mutex_unlock(&mtx);
 	    //Close(connfd);
@@ -133,16 +139,18 @@ void *thread_function(void* Container){
     struct Queues_container* container = (struct Queues_container*)Container;
     struct Queue * waiting_ptr = container->m_waiting_ptr;
     struct Queue * running_ptr = container->m_running_ptr;
+    int my_thread_id = container->m_id_thread;
+    struct timeval working_time; // the time the thread started to work on the request
     while(1){
         pthread_mutex_lock(&mtx);
         while(isEmpty(waiting_ptr) == 1){
            /// printf("%ld Waiting\n", pthread_self());
             pthread_cond_wait(&cnd, &mtx);
         }
-        printf("%u suze of queue\n", waiting_ptr->size);
-        int top_request = popQueue(waiting_ptr);
-        printf("Fd %d\n", top_request);
-        enQueue(running_ptr, top_request);
+        Request_info top_request_info = popQueue(waiting_ptr);
+        gettimeofday(&working_time, NULL);
+        int top_request = top_request_info.fd;
+        enQueue(running_ptr, top_request_info);
         pthread_mutex_unlock(&mtx);
         
         sleep(10);

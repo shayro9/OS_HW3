@@ -1,7 +1,6 @@
 //
 // request.c: Does the bulk of the work for the web server.
 // 
-#include "Queue.h"
 #include "segel.h"
 #include "request.h"
 
@@ -172,6 +171,8 @@ int ends_with_skip(const char *str) {
 // handle a request
 void requestHandle(int fd,  struct Queue * waiting_ptr, struct Queue * running_ptr)
 {
+   Request_info top_request_info;
+   memset(&top_request_info, 0, sizeof(top_request_info));
    int is_static;
    struct stat sbuf;
    char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
@@ -195,13 +196,10 @@ void requestHandle(int fd,  struct Queue * waiting_ptr, struct Queue * running_p
       filename[strlen(filename)-5] = '\0';
       pthread_mutex_lock(&mtx);
       if(isEmpty(waiting_ptr) == 0){
-         int top_request = popQueue(waiting_ptr);
-         enQueue(running_ptr, top_request);
-         pthread_mutex_unlock(&mtx);
-         requestHandle(top_request, waiting_ptr, running_ptr);
-         }else{
-            pthread_mutex_unlock(&mtx);
+         top_request_info = popQueue(waiting_ptr);
+         enQueue(running_ptr, top_request_info);
          }
+      pthread_mutex_unlock(&mtx);
    }
    if (stat(filename, &sbuf) < 0) {
       requestError(fd, filename, "404", "Not found", "OS-HW3 Server could not find this file");
@@ -220,6 +218,9 @@ void requestHandle(int fd,  struct Queue * waiting_ptr, struct Queue * running_p
          return;
       }
       requestServeDynamic(fd, filename, cgiargs);
+   }
+   if(top_request_info.fd != 0){
+      requestHandle(top_request_info.fd, waiting_ptr, running_ptr);
    }
 }
 

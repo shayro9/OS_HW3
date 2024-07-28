@@ -4,10 +4,10 @@
 #include "Queue.h"
 
 
-struct QNode* newNode(int k)
+struct QNode* newNode(Request_info val)
 {
 	struct QNode* temp = (struct QNode*)malloc(sizeof(struct QNode));
-	temp->key = k;
+	temp->key = val;
 	
 	temp->next = NULL;
 	return temp;
@@ -23,10 +23,10 @@ struct Queue* createQueue()
 }
 
 // The function to add a key k to q
-void enQueue(struct Queue* q, int k)
+void enQueue(struct Queue* q, Request_info val)
 {
 	// Create a new LL node
-	struct QNode* temp = newNode(k);
+	struct QNode* temp = newNode(val);
 	(q->size) += 1;
 
 	// If queue is empty, then new node is front and rear
@@ -66,8 +66,12 @@ int isEmpty(struct Queue* q){
 	return (q->front == NULL) ? 1 : 0;
 }
 
-int popQueue(struct Queue* q){
-	int tmp = q->front != NULL ? q->front->key : 0;
+Request_info popQueue(struct Queue* q){
+	Request_info tmp;
+	memset(&tmp, 0, sizeof(tmp));
+	if(q->front != NULL){ 
+		tmp = q->front->key; 
+	}
 	deQueue(q);
 	return tmp;
 }
@@ -77,7 +81,7 @@ int delete_by_value(struct Queue* q, int target){
 		return 1;
 	}
 	struct QNode *node = q->front, *prev = q->front;
-	if(node != NULL && node->key == target){
+	if(node != NULL && node->key.fd == target){
 		if(q->rear == q->front){
 			q->rear = NULL;
 		}
@@ -87,7 +91,7 @@ int delete_by_value(struct Queue* q, int target){
 		return 0;
 	}
 	while(node != NULL){
-		if(node->key == target){
+		if(node->key.fd == target){
 			prev->next = node->next;
 			free(node);
 			if(q->rear == node){
@@ -111,7 +115,7 @@ int* delete_random(struct Queue* q, int* size) {
     struct QNode *node = q->front;
     int counter = 0;
     while (node != NULL) {
-        arr[counter++] = node->key;
+        arr[counter++] = node->key.fd;
         node = node->next;
     }
     srand(time(NULL));  
