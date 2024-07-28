@@ -1,6 +1,6 @@
 
-#include <stdio.h>
-#include <stdlib.h>
+#include "segel.h"
+
 
 // A linked list (LL) node to store a queue entry
 struct QNode {
@@ -22,3 +22,4 @@ void enQueue(struct Queue* q, int k);
 void deQueue(struct Queue* q);
 int popQueue(struct Queue* q);
 int delete_by_value(struct Queue* q, int target);
+int* delete_random(struct Queue* q,int* size);

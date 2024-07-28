@@ -12,14 +12,13 @@
 // Most of the work is done within routines written in request.c
 //
 
-
 /// /////
 struct Queues_container{
     struct Queue * m_waiting_ptr;
     struct Queue * m_running_ptr;
 };
 // HW3: Parse the new arguments too
-void getargs(int *port, int *pool_size, int *queue_size, char *schedalg, int argc, char *argv[])
+void getargs(int *port, int *pool_size, int *queue_size, char **schedalg, int argc, char *argv[])
 {
     //TODO: ADD VALIDATION
     if (argc < 2) {
@@ -31,12 +30,12 @@ void getargs(int *port, int *pool_size, int *queue_size, char *schedalg, int arg
     *port = atoi(argv[1]);
     *pool_size = atoi(argv[2]);
     *queue_size = atoi(argv[3]);
-    schedalg = argv[4];
+    *schedalg = argv[4];
 }
 
 void *thread_function(void* Container);
 
-pthread_cond_t cnd; 
+pthread_cond_t cnd, master_cnd, empty_cnd; 
 pthread_mutex_t mtx;
 
 int main(int argc, char *argv[])
@@ -48,10 +47,12 @@ int main(int argc, char *argv[])
     struct Queue * waiting_ptr = createQueue();
     struct Queue * running_ptr = createQueue();
     struct Queues_container container = {waiting_ptr, running_ptr};
-    getargs(&port, &pool_size, &queue_size, schedalg, argc, argv);
+    getargs(&port, &pool_size, &queue_size, &schedalg, argc, argv);
 
-    // 
-    // HW3: Create some threads...
+    pthread_mutex_init(&mtx, NULL);
+    pthread_cond_init(&cnd, NULL);
+    pthread_cond_init(&master_cnd, NULL);
+    pthread_cond_init(&empty_cnd, NULL);
 
     pthread_t *thread_pool = (pthread_t *)malloc(pool_size * sizeof(pthread_t));
     for (int i = 0; i < pool_size; i++) {
@@ -60,18 +61,61 @@ int main(int argc, char *argv[])
             exit(EXIT_FAILURE);
         }
     }
-    pthread_mutex_init(&mtx, NULL);
-    pthread_cond_init(&cnd, NULL);
+    
     listenfd = Open_listenfd(port);
     while (1) {
         clientlen = sizeof(clientaddr);
-        pthread_mutex_lock(&mtx);
-        while(waiting_ptr->size + running_ptr->size ){
-            printf("%ld Waiting\n", pthread_self());
-            pthread_cond_wait(&cnd, &mtx);
-        }
         connfd = Accept(listenfd, (SA *)&clientaddr, (socklen_t *) &clientlen);
+        
         pthread_mutex_lock(&mtx);
+        while(waiting_ptr->size + running_ptr->size  >= queue_size){
+            printf("get into while\n");
+            if(strcmp(schedalg, "block") == 0){
+                printf("Waiting because of SIZE\n");
+                pthread_cond_wait(&master_cnd, &mtx);
+            }
+
+            else if(strcmp(schedalg, "dt") == 0){
+                pthread_mutex_unlock(&mtx);
+                Close(connfd);
+                connfd = Accept(listenfd, (SA *)&clientaddr, (socklen_t *) &clientlen);
+                pthread_mutex_lock(&mtx);
+            }
+            
+            else if(strcmp(schedalg, "dh") == 0){
+                int oldest_request = popQueue(waiting_ptr);
+                if(oldest_request == 0){ 
+                    continue;
+                }
+                enQueue(waiting_ptr, connfd);
+                pthread_mutex_unlock(&mtx);
+                Close(oldest_request);
+                connfd = Accept(listenfd, (SA *)&clientaddr, (socklen_t *) &clientlen);
+                printf("Accepted connection %d\n", connfd);
+                pthread_mutex_lock(&mtx);
+            }
+            
+            else if(strcmp(schedalg, "bf") == 0){
+                while(isEmpty(waiting_ptr) == 0 && isEmpty(running_ptr) == 0){
+                    pthread_cond_wait(&empty_cnd, &mtx);
+                }
+            }
+            
+            else if(strcmp(schedalg, "random") == 0){
+                int size = 0;
+                int * removed = delete_random(waiting_ptr, &size);
+                pthread_mutex_unlock(&mtx);
+                if(removed != NULL){
+                    for(int i = 0; i < size; i++){
+                        Close(removed[i]);
+                    }
+                    free(removed);
+                }
+                pthread_mutex_lock(&mtx);
+            }
+        }
+
+
         enQueue(waiting_ptr, connfd);
         pthread_cond_signal(&cnd);
         pthread_mutex_unlock(&mtx);
@@ -93,22 +137,24 @@ void *thread_function(void* Container){
     while(1){
         pthread_mutex_lock(&mtx);
         while(isEmpty(waiting_ptr) == 1){
-            printf("%ld Waiting\n", pthread_self());
+           /// printf("%ld Waiting\n", pthread_self());
             pthread_cond_wait(&cnd, &mtx);
         }
-
+        printf("%u suze of queue\n", waiting_ptr->size);
         int top_request = popQueue(waiting_ptr);
-
         printf("Fd %d\n", top_request);
         enQueue(running_ptr, top_request);
         pthread_mutex_unlock(&mtx);
 
         requestHandle(top_request);
-        
+        sleep(10);
         pthread_mutex_lock(&mtx);
 
         delete_by_value(running_ptr, top_request);
-        //condition
+        pthread_cond_signal(&master_cnd);
+        if(isEmpty(waiting_ptr) == 1 && isEmpty(running_ptr) == 1){
+            pthread_cond_signal(&empty_cnd);
+        }
         pthread_mutex_unlock(&mtx);
         Close(top_request);
     }

@@ -1,7 +1,6 @@
 // A C program to demonstrate linked list based
 // implementation of queue
-#include <stdio.h>
-#include <stdlib.h>
+
 #include "Queue.h"
 
 
@@ -101,3 +100,36 @@ int delete_by_value(struct Queue* q, int target){
 	}
 	return 1;
 }
+
+int* delete_random(struct Queue* q, int* size) {
+    if (q == NULL || q->size == 0) return NULL;
+
+    int *arr = (int*)calloc(q->size, sizeof(int));
+    if (arr == NULL) return NULL;
+
+    struct QNode *node = q->front;
+    int counter = 0;
+    while (node != NULL) {
+        arr[counter++] = node->key;
+        node = node->next;
+    }
+    srand(time(NULL));  
+    int counter_removed = 0, target_removals = (counter+1)/2;
+	int *res = (int*)calloc(target_removals, sizeof(int));
+	if(res == NULL){
+		free(arr);
+		return NULL;
+	}
+    while (counter_removed < target_removals) {
+        int tmp = rand() %counter;
+        if (arr[tmp] != 0) { 
+            delete_by_value(q, arr[tmp]);
+            res[counter_removed++] = arr[tmp];
+            arr[tmp] = 0;
+        }
+    }
+    free(arr);
+	(*size) = counter_removed;
+	return res;
+}
+

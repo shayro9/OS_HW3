@@ -19,6 +19,9 @@ all: server client output.cgi
 server: server.o request.o segel.o Queue.o
 	$(CC) $(CFLAGS) -o server server.o request.o segel.o Queue.o $(LIBS)
 
+Queue: Queue.o segel.o
+	$(CC) $(CFLAGS) -o Queue Queue.o segel.o
+
 client: client.o segel.o
 	$(CC) $(CFLAGS) -o client client.o segel.o
 
