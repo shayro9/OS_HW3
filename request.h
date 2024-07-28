@@ -1,5 +1,5 @@
 #ifndef __REQUEST_H__
-
-void requestHandle(int fd);
+#include "Queue.h"
+void requestHandle(int fd,  struct Queue * waiting_ptr, struct Queue * running_ptr);
 
 #endif

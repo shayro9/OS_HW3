@@ -1,10 +1,18 @@
 //
 // request.c: Does the bulk of the work for the web server.
 // 
-
+#include "Queue.h"
 #include "segel.h"
 #include "request.h"
 
+typedef struct Threads_stats{
+	int id;
+	int stat_req;
+	int dynm_req;
+	int total_req;
+} * threads_stats;
+
+extern pthread_mutex_t mtx;
 // requestError(      fd,    filename,        "404",    "Not found", "OS-HW3 Server could not find this file");
 void requestError(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg) 
 {
@@ -151,10 +159,19 @@ void requestServeStatic(int fd, char *filename, int filesize)
 
 }
 
+int ends_with_skip(const char *str) {
+    if (!str) {
+        return 0;
+    }
+    size_t len = strlen(str);
+    if (len < 5) {
+        return 0;
+    }
+    return (strcmp(str + len - 5, ".skip") == 0);
+}
 // handle a request
-void requestHandle(int fd)
+void requestHandle(int fd,  struct Queue * waiting_ptr, struct Queue * running_ptr)
 {
-
    int is_static;
    struct stat sbuf;
    char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
@@ -172,8 +189,20 @@ void requestHandle(int fd)
       return;
    }
    requestReadhdrs(&rio);
-
    is_static = requestParseURI(uri, filename, cgiargs);
+
+   if(ends_with_skip(filename) == 1){
+      filename[strlen(filename)-5] = '\0';
+      pthread_mutex_lock(&mtx);
+      if(isEmpty(waiting_ptr) == 0){
+         int top_request = popQueue(waiting_ptr);
+         enQueue(running_ptr, top_request);
+         pthread_mutex_unlock(&mtx);
+         requestHandle(top_request, waiting_ptr, running_ptr);
+         }else{
+            pthread_mutex_unlock(&mtx);
+         }
+   }
    if (stat(filename, &sbuf) < 0) {
       requestError(fd, filename, "404", "Not found", "OS-HW3 Server could not find this file");
       return;

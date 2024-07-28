@@ -1,10 +1,14 @@
 
+#ifndef __QUEUE_HEADER__H
+
 #include "segel.h"
+
 
 
 // A linked list (LL) node to store a queue entry
 struct QNode {
 	int key;
+	
 	struct QNode* next;
 };
 
@@ -23,3 +27,5 @@ void deQueue(struct Queue* q);
 int popQueue(struct Queue* q);
 int delete_by_value(struct Queue* q, int target);
 int* delete_random(struct Queue* q,int* size);
+
+#endif // __QUEUE_HEADER__H

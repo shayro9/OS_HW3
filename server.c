@@ -1,6 +1,5 @@
 #include "segel.h"
 #include "request.h"
-#include "Queue.h"
 
 // 
 // server.c: A very, very simple web server
@@ -145,9 +144,9 @@ void *thread_function(void* Container){
         printf("Fd %d\n", top_request);
         enQueue(running_ptr, top_request);
         pthread_mutex_unlock(&mtx);
-
-        requestHandle(top_request);
+        
         sleep(10);
+        requestHandle(top_request, waiting_ptr, running_ptr);
         pthread_mutex_lock(&mtx);
 
         delete_by_value(running_ptr, top_request);
