@@ -186,13 +186,15 @@ int ends_with_skip(const char *str) {
     return (strcmp(str + len - 5, ".skip") == 0);
 }
 // handle a request
-void requestHandle(int fd,  struct Queue * waiting_ptr, struct Queue * running_ptr, threads_stats t_stats)
+void requestHandle(Request_info request_info,  struct Queue * waiting_ptr, struct Queue * running_ptr, threads_stats t_stats)
 {
     Request_info top_request_info;
     memset(&top_request_info, 0, sizeof(top_request_info));
     struct timeval dispatch_time;
     gettimeofday(&dispatch_time, NULL);
     int is_static;
+    int fd = request_info.fd;
+    struct timeval arrival = request_info.time_info;
     struct stat sbuf;
     char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
     char filename[MAXLINE], cgiargs[MAXLINE];
@@ -203,9 +205,9 @@ void requestHandle(int fd,  struct Queue * waiting_ptr, struct Queue * running_p
     sscanf(buf, "%s %s %s", method, uri, version);
 
     printf("%s %s %s\n", method, uri, version);
-
+    //TODO: what if .skip is error????
     if (strcasecmp(method, "GET")) {
-      requestError(fd, method, "501", "Not Implemented", "OS-HW3 Server does not implement this method", top_request_info.time_info, dispatch_time, t_stats);
+      requestError(fd, method, "501", "Not Implemented", "OS-HW3 Server does not implement this method", arrival, dispatch_time, t_stats);
       return;
     }
     requestReadhdrs(&rio);
@@ -220,27 +222,29 @@ void requestHandle(int fd,  struct Queue * waiting_ptr, struct Queue * running_p
       pthread_mutex_unlock(&mtx);
     }
     if (stat(filename, &sbuf) < 0) {
-      requestError(fd, filename, "404", "Not found", "OS-HW3 Server could not find this file", top_request_info.time_info, dispatch_time, t_stats);
+      requestError(fd, filename, "404", "Not found", "OS-HW3 Server could not find this file", arrival, dispatch_time, t_stats);
       return;
     }
 
     if (is_static) {
         if (!(S_ISREG(sbuf.st_mode)) || !(S_IRUSR & sbuf.st_mode)) {
-         requestError(fd, filename, "403", "Forbidden", "OS-HW3 Server could not read this file", top_request_info.time_info, dispatch_time, t_stats);
+         requestError(fd, filename, "403", "Forbidden", "OS-HW3 Server could not read this file", arrival, dispatch_time, t_stats);
          return;
         }
         t_stats->stat_req += 1;
-        requestServeStatic(fd, filename, sbuf.st_size, top_request_info.time_info, dispatch_time, t_stats);
+        t_stats->total_req += 1;
+        requestServeStatic(fd, filename, sbuf.st_size, arrival, dispatch_time, t_stats);
     } else {
       if (!(S_ISREG(sbuf.st_mode)) || !(S_IXUSR & sbuf.st_mode)) {
-         requestError(fd, filename, "403", "Forbidden", "OS-HW3 Server could not run this CGI program", top_request_info.time_info, dispatch_time, t_stats);
+         requestError(fd, filename, "403", "Forbidden", "OS-HW3 Server could not run this CGI program", arrival, dispatch_time, t_stats);
          return;
       }
       t_stats->dynm_req += 1;
-      requestServeDynamic(fd, filename, cgiargs, top_request_info.time_info, dispatch_time, t_stats);
+      t_stats->total_req += 1;
+      requestServeDynamic(fd, filename, cgiargs, arrival, dispatch_time, t_stats);
     }
     if(top_request_info.fd != 0){
-      requestHandle(top_request_info.fd, waiting_ptr, running_ptr, t_stats);
+      requestHandle(top_request_info, waiting_ptr, running_ptr, t_stats);
     }
 }
 
