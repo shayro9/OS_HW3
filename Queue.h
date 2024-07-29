@@ -1,4 +1,3 @@
-
 #ifndef __QUEUE_HEADER__H
 
 #include "segel.h"
