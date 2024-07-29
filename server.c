@@ -46,7 +46,11 @@ int main(int argc, char *argv[])
 
     struct Queue * waiting_ptr = createQueue();
     struct Queue * running_ptr = createQueue();
-    struct Queues_container container = {waiting_ptr, running_ptr, 0};
+    struct Queues_container container = {
+            .m_waiting_ptr = waiting_ptr,
+            .m_running_ptr = running_ptr,
+            .m_stats = (threads_stats)malloc(sizeof(*container.m_stats)),
+    };
     getargs(&port, &pool_size, &queue_size, &schedalg, argc, argv);
 
     pthread_mutex_init(&mtx, NULL);
@@ -56,7 +60,7 @@ int main(int argc, char *argv[])
 
     pthread_t *thread_pool = (pthread_t *)malloc(pool_size * sizeof(pthread_t));
     for (int i = 0; i < pool_size; i++) {
-        container.m_stats = {i,0,0,0};
+        container.m_stats->id = i;
         if (pthread_create(&thread_pool[i], NULL, thread_function, &container) != 0) {
             perror("pthread_create failed");
             exit(EXIT_FAILURE);
@@ -139,7 +143,7 @@ void *thread_function(void* Container){
     struct Queues_container* container = (struct Queues_container*)Container;
     struct Queue * waiting_ptr = container->m_waiting_ptr;
     struct Queue * running_ptr = container->m_running_ptr;
-    threads_stats * t_stats = &container->m_stats;
+    threads_stats t_stats = container->m_stats;
     struct timeval working_time; // the time the thread started to work on the request
     while(1){
         pthread_mutex_lock(&mtx);

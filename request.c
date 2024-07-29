@@ -186,7 +186,7 @@ int ends_with_skip(const char *str) {
     return (strcmp(str + len - 5, ".skip") == 0);
 }
 // handle a request
-void requestHandle(int fd,  struct Queue * waiting_ptr, struct Queue * running_ptr, threads_stats * t_stats)
+void requestHandle(int fd,  struct Queue * waiting_ptr, struct Queue * running_ptr, threads_stats t_stats)
 {
     Request_info top_request_info;
     memset(&top_request_info, 0, sizeof(top_request_info));
@@ -229,14 +229,14 @@ void requestHandle(int fd,  struct Queue * waiting_ptr, struct Queue * running_p
          requestError(fd, filename, "403", "Forbidden", "OS-HW3 Server could not read this file", top_request_info.time_info, dispatch_time, t_stats);
          return;
         }
-        *t_stats->stat_req++;
+        t_stats->stat_req += 1;
         requestServeStatic(fd, filename, sbuf.st_size, top_request_info.time_info, dispatch_time, t_stats);
     } else {
       if (!(S_ISREG(sbuf.st_mode)) || !(S_IXUSR & sbuf.st_mode)) {
          requestError(fd, filename, "403", "Forbidden", "OS-HW3 Server could not run this CGI program", top_request_info.time_info, dispatch_time, t_stats);
          return;
       }
-      t_stats.dynm_req++
+      t_stats->dynm_req += 1;
       requestServeDynamic(fd, filename, cgiargs, top_request_info.time_info, dispatch_time, t_stats);
     }
     if(top_request_info.fd != 0){
