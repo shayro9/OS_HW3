@@ -15,7 +15,7 @@
 struct Queues_container{
     struct Queue * m_waiting_ptr;
     struct Queue * m_running_ptr;
-    int m_id_thread;
+    threads_stats m_stats;
 };
 // HW3: Parse the new arguments too
 void getargs(int *port, int *pool_size, int *queue_size, char **schedalg, int argc, char *argv[])
@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
 
     pthread_t *thread_pool = (pthread_t *)malloc(pool_size * sizeof(pthread_t));
     for (int i = 0; i < pool_size; i++) {
-        container.m_id_thread = i;
+        container.m_stats = {i,0,0,0};
         if (pthread_create(&thread_pool[i], NULL, thread_function, &container) != 0) {
             perror("pthread_create failed");
             exit(EXIT_FAILURE);
@@ -139,7 +139,7 @@ void *thread_function(void* Container){
     struct Queues_container* container = (struct Queues_container*)Container;
     struct Queue * waiting_ptr = container->m_waiting_ptr;
     struct Queue * running_ptr = container->m_running_ptr;
-    int my_thread_id = container->m_id_thread;
+    threads_stats * t_stats = &container->m_stats;
     struct timeval working_time; // the time the thread started to work on the request
     while(1){
         pthread_mutex_lock(&mtx);
@@ -154,7 +154,7 @@ void *thread_function(void* Container){
         pthread_mutex_unlock(&mtx);
         
         sleep(10);
-        requestHandle(top_request, waiting_ptr, running_ptr);
+        requestHandle(top_request, waiting_ptr, running_ptr, t_stats);
         pthread_mutex_lock(&mtx);
 
         delete_by_value(running_ptr, top_request);
