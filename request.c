@@ -210,6 +210,9 @@ void requestHandle(Request_info request_info,  struct Queue * waiting_ptr, struc
     sscanf(buf, "%s %s %s", method, uri, version);
 
     printf("%s %s %s\n", method, uri, version);
+
+    t_stats->total_req += 1;
+
     //TODO: what if .skip is error????
     if (strcasecmp(method, "GET")) {
       requestError(fd, method, "501", "Not Implemented", "OS-HW3 Server does not implement this method", arrival, dispatch_time, t_stats);
@@ -240,19 +243,17 @@ void requestHandle(Request_info request_info,  struct Queue * waiting_ptr, struc
          return;
         }
         t_stats->stat_req += 1;
-        t_stats->total_req += 1;
         requestServeStatic(fd, filename, sbuf.st_size, arrival, dispatch_time, t_stats);
     } else {
-      if (!(S_ISREG(sbuf.st_mode)) || !(S_IXUSR & sbuf.st_mode)) {
-         requestError(fd, filename, "403", "Forbidden", "OS-HW3 Server could not run this CGI program", arrival, dispatch_time, t_stats);
-         return;
-      }
-      t_stats->dynm_req += 1;
-      t_stats->total_req += 1;
-      requestServeDynamic(fd, filename, cgiargs, arrival, dispatch_time, t_stats);
-    }
+        if (!(S_ISREG(sbuf.st_mode)) || !(S_IXUSR & sbuf.st_mode)) {
+            requestError(fd, filename, "403", "Forbidden", "OS-HW3 Server could not run this CGI program", arrival, dispatch_time, t_stats);
+            return;
+        }
+        t_stats->dynm_req += 1;
+        requestServeDynamic(fd, filename, cgiargs, arrival, dispatch_time, t_stats);
+        }
     if(top_request_info.fd != 0){//this is a skip request
-      requestHandle(top_request_info, waiting_ptr, running_ptr, t_stats, dispatch_time_skip);
+        requestHandle(top_request_info, waiting_ptr, running_ptr, t_stats, dispatch_time_skip);
     }
 }
 
