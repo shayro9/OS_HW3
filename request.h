@@ -8,6 +8,6 @@ typedef struct Threads_stats{
     int total_req;
 } * threads_stats;
 
-void requestHandle(Request_info fd,  struct Queue * waiting_ptr, struct Queue * running_ptr, threads_stats t_stats);
+void requestHandle(Request_info fd,  struct Queue * waiting_ptr, struct Queue * running_ptr, threads_stats t_stats,struct timeval dispatch_time);
 
 #endif

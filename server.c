@@ -153,12 +153,14 @@ void *thread_function(void* Container){
         }
         Request_info top_request_info = popQueue(waiting_ptr);
         gettimeofday(&working_time, NULL);
+        working_time.tv_sec = working_time.tv_sec - top_request_info.time_info.tv_sec;
+        working_time.tv_usec = working_time.tv_usec - top_request_info.time_info.tv_usec;
         int top_request = top_request_info.fd;
         enQueue(running_ptr, top_request_info);
         pthread_mutex_unlock(&mtx);
         
-        sleep(10);
-        requestHandle(top_request, waiting_ptr, running_ptr, t_stats);
+        //sleep(10);
+        requestHandle(top_request_info, waiting_ptr, running_ptr, t_stats, working_time);
         pthread_mutex_lock(&mtx);
 
         delete_by_value(running_ptr, top_request);
