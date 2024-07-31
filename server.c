@@ -95,7 +95,7 @@ int main(int argc, char *argv[])
                 if(oldest_request.fd == 0){ 
                     continue;
                 }
-                Request_info val = {connfd, arrival_time};
+                Request_info val = {connfd, arrival_time, {-1}};
                 enQueue(waiting_ptr, val );
                 pthread_mutex_unlock(&mtx);
                 Close(oldest_request.fd);
@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
             }
         }
 
-        Request_info request = {connfd, arrival_time};
+        Request_info request = {connfd, arrival_time, {-1}};
         enQueue(waiting_ptr, request);
         pthread_cond_signal(&cnd);
         pthread_mutex_unlock(&mtx);
@@ -153,14 +153,15 @@ void *thread_function(void* Container){
         }
         Request_info top_request_info = popQueue(waiting_ptr);
         gettimeofday(&working_time, NULL);
-        working_time.tv_sec = working_time.tv_sec - top_request_info.time_info.tv_sec;
-        working_time.tv_usec = working_time.tv_usec - top_request_info.time_info.tv_usec;
+        working_time.tv_sec = working_time.tv_sec - top_request_info.arrival_time.tv_sec;
+        working_time.tv_usec = working_time.tv_usec - top_request_info.arrival_time.tv_usec;
+        top_request_info.dispatch_time = working_time;
         int top_request = top_request_info.fd;
         enQueue(running_ptr, top_request_info);
         pthread_mutex_unlock(&mtx);
         
         //sleep(10);
-        requestHandle(top_request_info, waiting_ptr, running_ptr, t_stats, working_time);
+        requestHandle(top_request_info, waiting_ptr, running_ptr, t_stats);
         pthread_mutex_lock(&mtx);
 
         delete_by_value(running_ptr, top_request);

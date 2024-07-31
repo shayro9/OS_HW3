@@ -4,7 +4,8 @@
 
 typedef struct request_info{
 	int fd;
-	struct timeval time_info;
+	struct timeval arrival_time;
+    struct timeval dispatch_time;
 } Request_info;
 
 // A linked list (LL) node to store a queue entry
