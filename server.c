@@ -76,9 +76,8 @@ int main(int argc, char *argv[])
 
         pthread_mutex_lock(&mtx);
         while(waiting_ptr->size + running_ptr->size  >= queue_size){
-            printf("get into while\n");
             if(strcmp(schedalg, "block") == 0){
-                printf("Waiting because of SIZE\n");
+                //printf("Waiting because of SIZE\n");
                 pthread_cond_wait(&master_cnd, &mtx);
             }
 
@@ -154,25 +153,27 @@ void *thread_function(void* Container){
             //printf("%ld Waiting\n", pthread_self());
             pthread_cond_wait(&cnd, &mtx);
         }
-        Request_info top_request_info = popQueue(waiting_ptr);
         gettimeofday(&working_time, NULL);
-        working_time.tv_sec = working_time.tv_sec - top_request_info.arrival_time.tv_sec;
-        working_time.tv_usec = working_time.tv_usec - top_request_info.arrival_time.tv_usec;
-        top_request_info.dispatch_time = working_time;
-        int top_request = top_request_info.fd;
+        Request_info top_request_info = popQueue(waiting_ptr);
         enQueue(running_ptr, top_request_info);
         pthread_mutex_unlock(&mtx);
 
+        working_time.tv_sec = working_time.tv_sec - top_request_info.arrival_time.tv_sec;
+        working_time.tv_usec = working_time.tv_usec - top_request_info.arrival_time.tv_usec;
+        top_request_info.dispatch_time = working_time;
+
+        int top_request = top_request_info.fd;
+
         //sleep(10);
         requestHandle(top_request_info, waiting_ptr, running_ptr, t_stats);
-        pthread_mutex_lock(&mtx);
 
+        pthread_mutex_lock(&mtx);
+        Close(top_request);
         delete_by_value(running_ptr, top_request);
         pthread_cond_signal(&master_cnd);
         if(isEmpty(waiting_ptr) == 1 && isEmpty(running_ptr) == 1){
             pthread_cond_signal(&empty_cnd);
         }
         pthread_mutex_unlock(&mtx);
-        Close(top_request);
     }
 }
