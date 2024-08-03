@@ -193,7 +193,10 @@ void requestHandle(Request_info request_info,  struct Queue * waiting_ptr, struc
 //    memset(&top_request_info, 0, sizeof(top_request_info));
     struct timeval arrival = request_info.arrival_time;
     struct timeval dispatch = request_info.dispatch_time;
-
+   struct timeval dispatch_time_skip;
+   memset(&dispatch_time_skip, 0, sizeof(dispatch_time_skip));
+   Request_info top_request_info_skip;
+   memset(&top_request_info_skip, 0, sizeof(top_request_info_skip));
     /*
     gettimeofday(&dispatch_time, NULL);
     dispatch_time.tv_sec = dispatch_time.tv_sec - arrival.tv_sec;
@@ -221,19 +224,16 @@ void requestHandle(Request_info request_info,  struct Queue * waiting_ptr, struc
     }
     requestReadhdrs(&rio);
     is_static = requestParseURI(uri, filename, cgiargs);
-    while (ends_with_skip(filename) == 1) {
+    if (ends_with_skip(filename) == 1) {
         filename[strlen(filename)-5] = '\0';
         pthread_mutex_lock(&mtx);
         if(isEmpty(waiting_ptr) == 0){
-            Request_info top_request_info = popQueue(waiting_ptr);
-            struct timeval dispatch_time_skip;
-            memset(&dispatch_time_skip, 0, sizeof(dispatch_time_skip));
+            top_request_info_skip = popQueue(waiting_ptr);
             gettimeofday(&dispatch_time_skip, NULL);
-            dispatch_time_skip.tv_sec = dispatch_time_skip.tv_sec - top_request_info.arrival_time.tv_sec;
-            dispatch_time_skip.tv_usec = dispatch_time_skip.tv_usec - top_request_info.arrival_time.tv_usec;
-            top_request_info.dispatch_time = dispatch_time_skip;
-            enQueue(running_ptr, top_request_info);
-            enQueue(skip_to, top_request_info);
+            timersub(&top_request_info_skip.arrival_time, &dispatch_time_skip,&top_request_info_skip.dispatch_time);
+            //top_request_info.dispatch_time = dispatch_time_skip;
+            enQueue(running_ptr, top_request_info_skip);
+            enQueue(skip_to, top_request_info_skip);
         }
         pthread_mutex_unlock(&mtx);
     }
@@ -262,6 +262,7 @@ void requestHandle(Request_info request_info,  struct Queue * waiting_ptr, struc
         // struct timeval disp = popQueue(skip_dispatch);
         requestHandle(req, waiting_ptr, running_ptr, t_stats);
     }
+
 //    if(top_request_info.fd != 0){//this is a skip request
 //        requestHandle(top_request_info, waiting_ptr, running_ptr, t_stats, dispatch_time_skip);
 //    }
