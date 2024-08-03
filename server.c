@@ -158,9 +158,7 @@ void *thread_function(void* Container){
         enQueue(running_ptr, top_request_info);
         pthread_mutex_unlock(&mtx);
 
-        working_time.tv_sec = working_time.tv_sec - top_request_info.arrival_time.tv_sec;
-        working_time.tv_usec = working_time.tv_usec - top_request_info.arrival_time.tv_usec;
-        top_request_info.dispatch_time = working_time;
+        timersub(&working_time, &top_request_info.arrival_time, &top_request_info.dispatch_time);
 
         int top_request = top_request_info.fd;
 
