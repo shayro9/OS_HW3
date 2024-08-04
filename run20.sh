@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # Path to the executable file
-executable="./client localhost 8003 home.html &"
 
 # Loop to execute the file 20 times
-for i in {1..20}
+for i in {1..10}
 do
     echo "Execution $i"
-    $executable
+    ./client localhost 8003 home$i.html &
+    sleep 0.1
 done
 

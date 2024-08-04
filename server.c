@@ -39,11 +39,10 @@ pthread_cond_t cnd, master_cnd, empty_cnd;
 pthread_mutex_t mtx;
 
 int main(int argc, char *argv[])
-{
+{   
     int listenfd, connfd, port, clientlen, queue_size, pool_size;
     char* schedalg = NULL;
     struct sockaddr_in clientaddr;
-
     struct Queue * waiting_ptr = createQueue();
     struct Queue * running_ptr = createQueue();
 
@@ -96,10 +95,15 @@ int main(int argc, char *argv[])
                 }
                 Request_info val = {connfd, arrival_time, {-1}};
                 enQueue(waiting_ptr, val );
+                // 
+                //printf("Request\n");
+                pthread_cond_signal(&cnd);
+                //
                 pthread_mutex_unlock(&mtx);
                 Close(oldest_request.fd);
                 connfd = Accept(listenfd, (SA *)&clientaddr, (socklen_t *) &clientlen);
                 gettimeofday(&arrival_time, NULL);
+                //printf("Request__\n");
                 pthread_mutex_lock(&mtx);
             }
 
@@ -162,7 +166,7 @@ void *thread_function(void* Container){
 
         int top_request = top_request_info.fd;
 
-        //sleep(10);
+        //sleep(1);
         requestHandle(top_request_info, waiting_ptr, running_ptr, t_stats);
 
         pthread_mutex_lock(&mtx);
