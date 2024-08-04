@@ -29,5 +29,7 @@ void deQueue(struct Queue* q);
 Request_info popQueue(struct Queue* q);
 int delete_by_value(struct Queue* q, int target);
 int* delete_random(struct Queue* q,int* size);
+Request_info popQueueFromEnd(struct Queue* q);
+void deQueueFromEnd(struct Queue *q);
 
 #endif // __QUEUE_HEADER__H

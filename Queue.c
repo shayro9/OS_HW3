@@ -76,6 +76,44 @@ Request_info popQueue(struct Queue* q){
 	return tmp;
 }
 
+void deQueueFromEnd(struct Queue *q) {
+
+    if (q->front == NULL) {
+        return; 
+    }
+
+    if (q->front == q->rear) {
+        struct QNode *temp = q->front;
+        free(temp);
+        q->front = NULL;
+		q->rear = NULL;
+        q->size = 0;
+        return;
+    }
+
+    struct QNode *current = q->front;
+    while (current->next != q->rear) {
+        current = current->next;
+    }
+
+    // 'current' is now the second last node
+    struct QNode *temp = q->rear;
+    free(temp);
+    q->rear = current;
+    q->rear->next = NULL;
+    q->size--;
+}
+
+Request_info popQueueFromEnd(struct Queue* q){
+	Request_info tmp;
+	memset(&tmp, 0, sizeof(tmp));
+	if(q->rear != NULL){ 
+		tmp = q->rear->key; 
+	}
+	deQueueFromEnd(q);
+	return tmp;
+}
+
 int delete_by_value(struct Queue* q, int target){
 	if(q == NULL){
 		return 1;

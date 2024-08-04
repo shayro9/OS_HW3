@@ -228,7 +228,7 @@ void requestHandle(Request_info request_info,  struct Queue * waiting_ptr, struc
         filename[strlen(filename)-5] = '\0';
         pthread_mutex_lock(&mtx);
         if(isEmpty(waiting_ptr) == 0){
-            top_request_info_skip = popQueue(waiting_ptr);
+            top_request_info_skip = popQueueFromEnd(waiting_ptr);
             gettimeofday(&dispatch_time_skip, NULL);
             timersub(&top_request_info_skip.arrival_time, &dispatch_time_skip,&top_request_info_skip.dispatch_time);
             //top_request_info.dispatch_time = dispatch_time_skip;
