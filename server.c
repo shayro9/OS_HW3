@@ -147,7 +147,7 @@ void *thread_function(void* Container){
     struct Queue * waiting_ptr = container->m_waiting_ptr;
     struct Queue * running_ptr = container->m_running_ptr;
     int id = container->index;
-
+    int fd_skip = 0;
     struct Threads_stats temp = {id,0,0,0};
     threads_stats t_stats = &temp;
     struct timeval working_time; // the time the thread started to work on the request
@@ -167,10 +167,14 @@ void *thread_function(void* Container){
         int top_request = top_request_info.fd;
 
         //sleep(1);
-        requestHandle(top_request_info, waiting_ptr, running_ptr, t_stats);
+        fd_skip = requestHandle(top_request_info, waiting_ptr, running_ptr, t_stats);
 
         pthread_mutex_lock(&mtx);
         Close(top_request);
+        if(fd_skip != 0){
+            Close(fd_skip);
+            delete_by_value(running_ptr, fd_skip);
+        }
         delete_by_value(running_ptr, top_request);
         pthread_cond_signal(&master_cnd);
         if(isEmpty(waiting_ptr) == 1 && isEmpty(running_ptr) == 1){

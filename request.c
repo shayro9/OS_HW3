@@ -186,7 +186,7 @@ int ends_with_skip(const char *str) {
     return (strcmp(str + len - 5, ".skip") == 0);
 }
 // handle a request
-void requestHandle(Request_info request_info,  struct Queue * waiting_ptr, struct Queue * running_ptr, threads_stats t_stats)
+int requestHandle(Request_info request_info,  struct Queue * waiting_ptr, struct Queue * running_ptr, threads_stats t_stats)
 {
     struct Queue * skip_to = createQueue();
 //    Request_info top_request_info;
@@ -212,20 +212,8 @@ void requestHandle(Request_info request_info,  struct Queue * waiting_ptr, struc
     Rio_readinitb(&rio, fd);
     Rio_readlineb(&rio, buf, MAXLINE);
     sscanf(buf, "%s %s %s", method, uri, version);
-
-    printf("%s %s %s\n", method, uri, version);
-
-    t_stats->total_req += 1;
-
-    //TODO: what if .skip is error????
-    if (strcasecmp(method, "GET")) {
-      requestError(fd, method, "501", "Not Implemented", "OS-HW3 Server does not implement this method", arrival, dispatch, t_stats);
-      return;
-    }
-    requestReadhdrs(&rio);
-    is_static = requestParseURI(uri, filename, cgiargs);
-    if (ends_with_skip(filename) == 1) {
-        filename[strlen(filename)-5] = '\0';
+    if (ends_with_skip(uri) == 1) {
+        uri[strlen(uri)-5] = '\0';
         pthread_mutex_lock(&mtx);
         if(isEmpty(waiting_ptr) == 0){
             top_request_info_skip = popQueueFromEnd(waiting_ptr);
@@ -237,22 +225,34 @@ void requestHandle(Request_info request_info,  struct Queue * waiting_ptr, struc
         }
         pthread_mutex_unlock(&mtx);
     }
+
+    printf("%s %s %s\n", method, uri, version);
+
+    t_stats->total_req += 1;
+
+    //TODO: what if .skip is error????
+    if (strcasecmp(method, "GET")) {
+      requestError(fd, method, "501", "Not Implemented", "OS-HW3 Server does not implement this method", arrival, dispatch, t_stats);
+      return 0;
+    }
+    requestReadhdrs(&rio);
+    is_static = requestParseURI(uri, filename, cgiargs);
     if (stat(filename, &sbuf) < 0) {
       requestError(fd, filename, "404", "Not found", "OS-HW3 Server could not find this file", arrival, dispatch, t_stats);
-      return;
+      return 0;
     }
 
     if (is_static) {
         if (!(S_ISREG(sbuf.st_mode)) || !(S_IRUSR & sbuf.st_mode)) {
          requestError(fd, filename, "403", "Forbidden", "OS-HW3 Server could not read this file", arrival, dispatch, t_stats);
-         return;
+         return 0;
         }
         t_stats->stat_req += 1;
         requestServeStatic(fd, filename, sbuf.st_size, arrival, dispatch, t_stats);
     } else {
         if (!(S_ISREG(sbuf.st_mode)) || !(S_IXUSR & sbuf.st_mode)) {
             requestError(fd, filename, "403", "Forbidden", "OS-HW3 Server could not run this CGI program", arrival, dispatch, t_stats);
-            return;
+            return 0;
         }
         t_stats->dynm_req += 1;
         requestServeDynamic(fd, filename, cgiargs, arrival, dispatch, t_stats);
@@ -261,8 +261,9 @@ void requestHandle(Request_info request_info,  struct Queue * waiting_ptr, struc
         Request_info req = popQueue(skip_to);
         // struct timeval disp = popQueue(skip_dispatch);
         requestHandle(req, waiting_ptr, running_ptr, t_stats);
+         return req.fd;
     }
-
+   return 0;
 //    if(top_request_info.fd != 0){//this is a skip request
 //        requestHandle(top_request_info, waiting_ptr, running_ptr, t_stats, dispatch_time_skip);
 //    }
